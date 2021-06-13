@@ -1,0 +1,244 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+Attivazioni_prov_tc<-read.csv("Attivazioni_prov_tc_2009-2020.csv")
+Educazione_2011<-read.csv("Educazione_2011.csv")
+```
+
+```{r}
+Attivazioni_prov_tc<-read.csv("Attivazioni_prov_tc_2009-2020.csv")
+Educazione_2011<-read.csv("Educazione_2011.csv")
+```
+
+
+```{r}
+###Format ATTIVAZIONI
+#remove some tipologie contrattuali
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$tipologia_contrattuale=="Altro"),]
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$tipologia_contrattuale=="Apprendistato"),]
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$tipologia_contrattuale=="Contratti di Collaborazione"),]
+#remove some years
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$anno<2011),]
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$anno==2020),]
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="Estero"),]
+#remove sardegna
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="SUD SARDEGNA"),] 
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="CAGLIARI"),]  
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="CARBONIA-IGLESIAS"),]
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="MEDIO CAMPIDANO"),] 
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="OGLIASTRA"),] 
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="ORISTANO"),] 
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="NUORO"),] 
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="OLBIA-TEMPIO"),]   
+Attivazioni_prov_tc<-Attivazioni_prov_tc[!(Attivazioni_prov_tc$provincia=="SASSARI"),] 
+```
+
+```{r}
+###Format Education 2011
+#sum the two columns
+Educazione_2011$High_Edu.sum<-rowSums(cbind(Educazione_2011$titoli.universitari, Educazione_2011$diploma.terziario.non.universitario.del.vecchio.ordinamento.e.diplomi.A.F.A.M.))
+#share over the total
+Educazione_2011$SHARE_HIGH<-with(Educazione_2011, Educazione_2011$High_Edu.sum/Educazione_2011$totale)
+
+#divide in 3 categories
+Educazione_2011<- Educazione_2011%>%
+  mutate(Provincial_level3 = ntile(SHARE_HIGH, 3))
+
+
+#format the Territorio column in order to left join 
+#upper case letters
+Educazione_2011$Territorio<-str_to_upper(Educazione_2011$Territorio)
+#change column name
+colnames(Educazione_2011)[which(names(Educazione_2011) == "Territorio")] <- "provincia"
+#change some province names so that they match
+Educazione_2011$provincia[Educazione_2011$provincia=="VALLE D'AOSTA / VALLÉE D'AOSTE"] <- "AOSTA"
+Educazione_2011$provincia[Educazione_2011$provincia=="PROVINCIA AUTONOMA BOLZANO / BOZEN"] <- "BOLZANO"
+Educazione_2011$provincia[Educazione_2011$provincia=="PROVINCIA AUTONOMA TRENTO"] <- "TRENTO"
+Educazione_2011$provincia[Educazione_2011$provincia=="MONZA E DELLA BRIANZA"] <- "MONZA E BRIANZA"
+Educazione_2011$provincia[Educazione_2011$provincia=="FORLÌ-CESENA"] <- "FORLI'"
+Educazione_2011$provincia[Educazione_2011$provincia=="MASSA-CARRARA"] <- "MASSA CARRARA"
+Educazione_2011$provincia[Educazione_2011$provincia=="PESARO E URBINO"] <- "PESARO"
+Educazione_2011$provincia[Educazione_2011$provincia=="REGGIO NELL'EMILIA"] <- "REGGIO NELL' EMILIA"
+#remove Sardegna
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="SUD SARDEGNA"),] 
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="CAGLIARI"),]  
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="CARBONIA-IGLESIAS"),]
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="MEDIO CAMPIDANO"),] 
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="OGLIASTRA"),] 
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="ORISTANO"),] 
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="NUORO"),] 
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="OLBIA-TEMPIO"),]   
+Educazione_2011<-Educazione_2011[!(Educazione_2011$provincia=="SASSARI"),]
+```
+
+```{r}
+###MERGE
+LEFT_JOIN<-left_join(Attivazioni_prov_tc, Educazione_2011, by = "provincia")%>%
+  select(subset=-c("analfabeta", "alfabeta.privo.di.titolo.di.studio", "licenza.di.scuola.elementare", "licenza.di.scuola.media.inferiore.o.di.avviamento.professionale", "diploma.di.scuola.secondaria.superiore"))
+
+LEFT_JOIN$Provincial_level3[LEFT_JOIN$Provincial_level3=="3"] <- "High Education"
+LEFT_JOIN$Provincial_level3[LEFT_JOIN$Provincial_level3=="2"] <- "High Education"
+LEFT_JOIN$Provincial_level3[LEFT_JOIN$Provincial_level3=="1"] <- "Low Education"
+
+
+LEFT_JOIN_wide<-LEFT_JOIN%>%
+  spread(tipologia_contrattuale, attivazioni, fill = NA)
+```
+
+```{r}
+##IMPORT CONTROLS - population and unemployment
+population<-read.csv("popolazione_istat_provinciale-nosardegna.csv")
+unemployment<-read.csv("disoccupazione_istat-province-nosardegna.csv")
+#format controls
+population$provincia<-str_to_upper(population$provincia)
+unemployment$provincia<-str_to_upper(unemployment$provincia)
+population$provincia[population$provincia=="MONZA E DELLA BRIANZA"] <- "MONZA E BRIANZA"
+unemployment$provincia[unemployment$provincia=="MONZA E DELLA BRIANZA"] <- "MONZA E BRIANZA"
+
+
+##merge the datasets
+merge<-merge(unemployment, population, by = c("provincia", "anno"), all = T)
+merge1<-merge(merge, LEFT_JOIN_wide, by = c("provincia", "anno"), all = T)
+
+#IMPORT CONTROLS - GDP
+value_added<-read.csv("valore_aggiunto_provincia_the_real.csv")
+#FROM WIDE TO LONG
+value_added_long<-value_added %>%
+  gather(anno, value_added, "2011":"2019")
+#UPPER CASE
+value_added_long$provincia<-str_to_upper(value_added_long$provincia)
+#merge
+merge_all<-merge(value_added_long, merge11, by = c("anno"), all=T)
+```
+
+```{r}
+FINAL<-merge(merge_all, LEFT_JOIN)
+```
+
+
+```{r}
+###PLOT 1
+
+library(dplyr)
+#FAGGREGATE NEW PERMANENT CONTRACTS BY EDUCATION CLASS - aggregation in EDUCATION class is by SUM
+FINAL_sum<- FINAL%>%
+  group_by(anno, Provincial_level2, tipologia_contrattuale)%>%
+  summarise_at(vars(attivazioni), sum)    ####AGGREGATED BY SUM 
+
+#graph new yearly contract - by education
+ggplot(FINAL_sum, aes(fill=tipologia_contrattuale, y=attivazioni, x=as.character(anno))) + 
+    geom_col(position="dodge", stat = "identity") +
+    facet_wrap(~Provincial_level2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust=0.8), panel.grid.major.x = element_blank(), panel.background = element_rect(fill = "grey95"), plot.caption = element_text(hjust = 0), axis.title.y = element_text(hjust = 0.7)) +
+  labs(title = "Yearly stipulated contracts by type of contract and educational category",
+       x = "Year") +
+  scale_fill_discrete(labels = c("Fixed-Term", "Permanent")) +
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(family = "sans", margin = margin(12,0,0,10), vjust = 5)) +
+  ylab(label = element_blank()) +
+  scale_y_continuous(name = element_blank(), labels = scales::comma, breaks = c(500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000, 4500000, 5000000, 5500000, 6000000, 6500000))
+```
+
+```{r}
+###PLOT 2
+
+#remove temporary contracts
+FINAL_sum_perm<-FINAL_sum[!(FINAL_sum$tipologia_contrattuale=="Tempo.Determinato"),]
+
+write.csv(FINAL_sum_perm, "THE_FINALyo_sum_perm.csv")
+FINAL_sum_perm_var<-read.csv("VARIATION GRAPH.csv")
+colnames(THE_FINALyo_sum_perm_var)[which(names(THE_FINALyo_sum_perm_var) == "ï..anno")] <- "anno"
+FINAL_sum_perm_var <- THE_FINALyo_sum_perm_var[-c(1,7), ]
+
+ggplot(FINAL_sum_perm_var, aes(x = as.character(anno), y = variazioni, fill = Provincial_level2)) +
+  geom_col(aes(colour = Provincial_level2), position = "dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(vjust=0.6), panel.grid.major.x = element_blank(), panel.background = element_rect(fill = "grey95"), plot.caption = element_text(hjust = 0)) +
+  labs(title = "Relative Change in Permanent Contracts - based on pre-reform levels",
+       x = "Year",
+       y = "% change") + 
+  scale_y_continuous(labels = scales :: percent, breaks = c(seq(from=-0.4, to=0.6, by=0.1))) +
+  theme(legend.title = element_blank(), legend.position = 'bottom') +
+  theme(plot.title = element_text(family = "sans", margin = margin(12,0,0,10), vjust = 5))
+dev.off() 
+```
+
+
+```{r}
+###PLOT 3 - PRE-TRENDS
+
+##make wide
+FINAL_sum_perm_wide<-FINAL_sum_perm%>%
+  spread(tipologia_contrattuale, attivazioni, fill = NA)
+write.csv(THE_FINALyo_sum_perm_wide, "THE_FINALyo_sum_perm_wide.csv")
+
+pre_trends_2015_2019_FINAL<-read.csv("pre-trends_2015-2019_FINAL.csv")
+pre_trends_2011_2014_FINAL<-read.csv("pre-trends_2011-2014_FINAL.csv")
+colnames(pre_trends_2011_2014_FINAL)[which(names(pre_trends_2011_2014_FINAL) == "ï..anno")] <- "anno"
+colnames(pre_trends_2015_2019_FINAL)[which(names(pre_trends_2015_2019_FINAL) == "ï..anno")] <- "anno"
+
+
+ggplot()+
+  geom_line(data = pre_trends_2011_2014_FINAL, aes(x = as.factor(anno), y = Tempo.Indeterminato, group = Provincial_level2, color = Provincial_level2), linetype = "dashed") +
+  geom_point(data = pre_trends_2011_2014_FINAL, aes(x = as.factor(anno), y = Tempo.Indeterminato, group = Provincial_level2, color = Provincial_level2)) +
+  geom_line(data = pre_trends_2015_2019_FINAL, aes(x = as.factor(anno), y = Tempo.Indeterminato, group = Provincial_level2, color = Provincial_level2), linetype = "dashed") +
+  geom_point(data = pre_trends_2015_2019_FINAL, aes(x = as.factor(anno), y = Tempo.Indeterminato, group = Provincial_level2, color = Provincial_level2)) +
+theme(axis.text.x = element_text(angle = 65, vjust = 0.6)) +
+  scale_x_discrete(name = "Year") +
+  scale_y_continuous(name = "Permanent Contracts", limits = c(100000, 1800000), breaks = c(100000, 300000, 500000, 700000, 900000, 1100000, 1300000, 1500000, 1700000), labels = scales::comma) +
+  labs(title = "Pre-trends - Permanent contracts", x = "Year - Trimester", y = " Number of Permanent Contracts") +
+  theme_bw() +
+theme(legend.title = element_blank(), legend.position = 'bottom')
+```
+
+
+```{r}
+###REGRESSIONS
+THE_FINAL$Provincial_level2<- factor(THE_FINAL$Provincial_level2, levels=c("Low Education", "High Education"))
+THE_FINAL$Provincial_level2<-relevel(THE_FINAL$Provincial_level2, ref = "High Education")
+```
+
+
+```{r}
+#MODEL 1
+regr_lm_dummy_2<-lm(log(Tempo.Indeterminato) ~  as.factor(anno) + as.factor(provincia) + Provincial_level2 + time_dummy + disoccupazione + log(popolazione) + log(value_added) + Provincial_level2*time_dummy, data = THE_FINAL)
+summary(regr_lm_dummy_2)
+
+MODEL_CLUSTERED_ERRORS <- coeftest(regr_lm_dummy_2, vcov.= vcovHC(regr_lm_dummy_2, cluster = Provincial_level2))
+ROBUST_SE<-list(sqrt(diag(vcovHC(regr_lm_dummy_2, cluster = Provincial_level2))))
+
+library(stargazer)
+stargazer(regr_lm_dummy_2, title = "Results", type = "text", dep.var.labels = c("log(Permanent Contracts)"), omit = c("anno", "provincia"), out = "regr_dummy.html", se=ROBUST_SE)
+```
+
+```{r}
+#MODEL2
+regr_trends_prov2<-lm(log(Tempo.Indeterminato) ~  as.factor(provincia) + as.factor(anno)*Provincial_level2 + log(popolazione) + log(value_added) + disoccupazione + Provincial_level2, data = THE_FINAL)
+summary(regr_trends_prov2)
+
+MODEL_CLUSTERED_ERRORS_PRETRENDS <- coeftest(regr_trends_prov2, vcov.= vcovHC(regr_trends_prov2, cluster = Provincial_level2))
+ROBUST_SE_PRETENDS<-list(sqrt(diag(vcovHC(regr_trends_prov2, cluster = Provincial_level2))))
+
+stargazer(regr_trends_prov2, title = "Results", type = "text", dep.var.labels = c("log(Permanent Contracts)"), omit = c("provincia"), out = "regr_pretrends.html", se = ROBUST_SE_PRETENDS)
+```
+
+
+
+
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
